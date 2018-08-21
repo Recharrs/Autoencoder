@@ -2,16 +2,14 @@
 .vscode
 
 # python
+*.pyc
 __pycache__
-autoencoder/__pycache__
 
 # log
 Log
 
 # model
-Model/AE/*
-Model/RAE/*
-Model/VAE/*
+Model/*
 
 # data
-training_data
+Trajectory

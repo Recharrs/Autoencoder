@@ -213,7 +213,7 @@ class Model:
                         # create FC for convert output from 
                         # [batch_size, output_size] to [batch_size, input_size]
                         #with tf.name_scope("FC"):
-                            # weight & bias
+                        # weight & bias
                         fc_weight = tf.Variable(
                             self.random_init([output_size, input_size]),
                             name="weight",
@@ -321,7 +321,7 @@ class Model:
                             # TODO: setting beta (currentlt 0.5)
                             self.loss += -0.5 * tf.reduce_sum(loss, 1)
                 '''
-                raise NotImplementedError("LSTM: not implemented")
+                raise NotImplementedError("VAE: not implemented")
 
             # Input
             elif layer_type == "input":
