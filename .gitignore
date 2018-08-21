@@ -9,5 +9,9 @@ autoencoder/__pycache__
 Log
 
 # model
-Modeltraining_data/
+Model/AE/*
+Model/RAE/*
+Model/VAE/*
+
+# data
 training_data

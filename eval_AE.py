@@ -12,8 +12,8 @@ with tf.Session() as sess:
     saver.restore(sess, tf.train.latest_checkpoint("./Model/AE"))
 
     graph = tf.get_default_graph()
-    model_input = graph.get_tensor_by_name("input:0")
-    model_output = graph.get_tensor_by_name("output:0")
+    model_input = graph.get_tensor_by_name("inputs/input:0")
+    model_output = graph.get_tensor_by_name("outputs/output:0")
 
     # Testing
     n = 4

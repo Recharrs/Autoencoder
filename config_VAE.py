@@ -21,30 +21,62 @@ def custom_random_init(shape, name=None):
 
 # Model Architecture Configure
 config = {
-    "input_shape": [None, image_dim],
-    "encoder": [
+    "random_init": custom_random_init,
+    "model": [
         {
-            "type": "FC",
-            "input_size": image_dim,
-            "output_size": hidden_dim,
-            "activation": tf.nn.tanh,
+            "name": "inputs",
+            "layers": [{"type": "input", "name": "input", "shape": [None, image_dim]}],
+        },
+        {
+            "name": "encoder",
+            "layers": [
+                {
+                    "type": "FC",
+                    "name": "encoder",
+                    "input": "input",
+                    "output_size": hidden_dim,
+                    "activation": tf.nn.tanh,
+                },
+                {
+                    "type": "sampler",
+                    "name": "sampler",
+                    "input": "encoder",
+                    "output_size": latent_dim,
+                },
+            ],
+        },
+        {
+            "name": "decoder",
+            "layers": [
+                {"type": "block_input", "name": "decoder_input", "input": "sampler"},
+                {
+                    "type": "FC",
+                    "name": "decoder_1st",
+                    "input": "decoder_input",
+                    "output_size": hidden_dim,
+                    "activation": tf.nn.tanh,
+                },
+                {
+                    "type": "FC",
+                    "name": "decoder_2nd",
+                    "input": "decoder_1st",
+                    "output_size": image_dim,
+                    "activation": tf.nn.sigmoid,
+                },
+            ],
+        },
+        {
+            "name": "outputs",
+            "layers": [{"type": "output", "name": "output", "input": "decoder_2nd"}],
+        },
+    ],
+    "loss": [
+        {
+            "name": "encode_decode_loss",
+            "weight": 1,
+            "ground_truth": "input",
+            "prediction": "output",
+            "loss_func": custom_loss,
         }
     ],
-    "sampler": {"input_size": hidden_dim, "output_size": latent_dim},
-    "decoder": [
-        {
-            "type": "FC",
-            "input_size": latent_dim,
-            "output_size": hidden_dim,
-            "activation": tf.nn.tanh,
-        },
-        {
-            "type": "FC",
-            "input_size": hidden_dim,
-            "output_size": image_dim,
-            "activation": tf.nn.sigmoid,
-        },
-    ],
-    "loss": custom_loss,
-    "random_init": custom_random_init,
 }

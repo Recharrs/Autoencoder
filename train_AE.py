@@ -28,13 +28,17 @@ with tf.Session() as sess:
     # Initialize
     sess.run(model.init)
 
+    # get model input
+    graph = tf.get_default_graph()
+    model_input = graph.get_tensor_by_name("inputs/input:0")
+
     # Traning
     for i in range(1, num_steps + 1):
         # Prepare Data
         batch_x, _ = mnist.train.next_batch(batch_size)
 
         # Run Optimization
-        _, l = sess.run([model.optimizer, model.loss], feed_dict={model.input: batch_x})
+        _, l = sess.run([model.optimizer, model.loss], feed_dict={model_input: batch_x})
         # Display loss
         if i % display_step == 0 or i == 1:
             print("Step %i: Minibatch Loss: %f" % (i, l))

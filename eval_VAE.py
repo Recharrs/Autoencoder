@@ -18,7 +18,7 @@ with tf.Session() as sess:
     # extract decoder only
     graph = tf.get_default_graph()
     decoder_input = graph.get_tensor_by_name("decoder/decoder_input:0")
-    decoder_output = graph.get_tensor_by_name("output:0")
+    decoder_output = graph.get_tensor_by_name("outputs/output:0")
 
     # Testing
     # Building a manifold of generated digits

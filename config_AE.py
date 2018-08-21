@@ -7,35 +7,61 @@ num_input = 784  # MNIST data input (img shape: 28*28)
 
 # Model Architecture Configure
 config = {
-    "input_shape": [None, num_input],
-    "encoder": [
+    "model": [
         {
-            "type": "FC",
-            "input_size": num_input,
-            "output_size": num_hidden_1,
-            "activation": tf.nn.sigmoid,
+            "name": "inputs",
+            "layers": [{"type": "input", "name": "input", "shape": [None, num_input]}],
         },
         {
-            "type": "FC",
-            "input_size": num_hidden_1,
-            "output_size": num_hidden_2,
-            "activation": tf.nn.sigmoid,
+            "name": "encoder",
+            "layers": [
+                {
+                    "type": "FC",
+                    "name": "enc_1",
+                    "input": "input",
+                    "output_size": num_hidden_1,
+                    "activation": tf.nn.sigmoid,
+                },
+                {
+                    "type": "FC",
+                    "name": "enc_2",
+                    "input": "enc_1",
+                    "output_size": num_hidden_2,
+                    "activation": tf.nn.sigmoid,
+                },
+            ],
+        },
+        {
+            "name": "decoder",
+            "layers": [
+                {"type": "block_input", "name": "decoder_input", "input": "enc_2"},
+                {
+                    "type": "FC",
+                    "name": "dec_1",
+                    "input": "decoder_input",
+                    "output_size": num_hidden_1,
+                    "activation": tf.nn.sigmoid,
+                },
+                {
+                    "type": "FC",
+                    "name": "dec_2",
+                    "input": "dec_1",
+                    "output_size": num_input,
+                    "activation": tf.nn.sigmoid,
+                },
+            ],
+        },
+        {
+            "name": "outputs",
+            "layers": [{"type": "output", "name": "output", "input": "dec_2"}],
         },
     ],
-    "sampler": None,
-    "decoder": [
+    "loss": [
         {
-            "type": "FC",
-            "input_size": num_hidden_2,
-            "output_size": num_hidden_1,
-            "activation": tf.nn.sigmoid,
-        },
-        {
-            "type": "FC",
-            "input_size": num_hidden_1,
-            "output_size": num_input,
-            "activation": tf.nn.sigmoid,
-        },
+            "name": "enc_dec_loss",
+            "weight": 1,
+            "ground_truth": "input",
+            "prediction": "output",
+        }
     ],
-    "loss": None,
 }

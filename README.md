@@ -46,7 +46,71 @@ Different to the previous example restores whole model for evaluation, this exam
 
 ## Usage
 
-Use config to specify model architecture. See example in `config.py`.
+### Model Config
+
+Use config to specify model architecture.<br>
+In the config, `"model"` and `"loss"` must be defined.<br>
+There is also an optional setting `"random_init"` for setting how variables are initialized.<br>
+
+#### model
+
+`"model"` is a list of blocks, and each block has it own `"name"`, which will be the scope name of block.<br>
+
+#### block
+
+Blocks can be nested by define `"blocks"`, which is also a list of bloocks.<br>
+Also, each block has `"layers"`, a list of layers, which would be FC, RNN, CNN, anrd etc. (Currently only FC are available.)<br>
+
+#### layer
+
+Each layer must have its own unique `"name"`, and what `"type"` it is.<br>
+Different type of layers have different attributes to fill in. Check `model.py` or example config file for more information.
+
+```python
+config = {
+    "random_init": custom_random_init
+    "model": [
+        # list of blocks
+        {
+            "name": "block name",
+            "blocks": [
+                # list of blocks
+            ],
+            "layers": [
+                # list of layers
+                {
+                    "type": "FC",
+                    "name": "layer_name",
+                    "input": "some input layer",
+                    "output_size": 100,
+                    "activation": tf.nn.tanh
+                },
+                ...
+            ]
+        },
+        ...
+    ],
+    "loss": [
+        {
+            "name": "loss name",
+            "weight": 1,
+            "ground_truth": "some label layer",
+            "prediction": "some output layer",
+            "loss_func": custom_loss_func
+        }
+    ],
+
+}
+```
+
+#### loss
+
+`"loss"` define the optimisation objective.<br>
+In default, loss function is the MSE between `"ground_truth"` and `"prediction"`. If `"loss_func"` is defined, it will pass `"ground_truth"` and `"prediction"` to the custom loss function.<br>
+`"weight"` is the loss weighting to trade with other loss.<br>
+For variational autoencoder, loss of sampler, which is KL divergence, will be add to total loss automatically.
+
+### Training and Testing
 
 ```python
 from autoencoder.model import Model
@@ -60,14 +124,17 @@ model.train(learning_rate)
 sess.run(model.init)
 
 # train
-sess.run(model.optimizer, feed_dict={model.input: data})
+# need to find the tensor with its name in the graph
+graph = tf.get_default_graph()
+model_input = graph.get_tensor_by_name("input_node_name:0")
+sess.run(model.optimizer, feed_dict={model_input: data})
 
 # test full model
-sess.run(model.output, feed_dict={model.input: data})
+sess.run(model_output, feed_dict={model_input: data})
 # test encoder
-sess.run(model.encoder, feed_dict={model.input: data})
+sess.run(model_encoder, feed_dict={model_input: data})
 # test decoder
-sess.run(model.decoder, feed_dict={model.decoder_input: data})
+sess.run(model_output, feed_dict={model_decoder_input: data})
 ```
 
 ## Version
