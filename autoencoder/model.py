@@ -1,10 +1,16 @@
 import tensorflow as tf
 import numpy as np
 
+# tensorflow utils
+# ========================================
+def utils():
+    pass
+
 # Build Model
 class Model:
     def __init__(self, config):
         # Settings
+        # --------------------
         # random initializer
         if "random_init" in config and config["random_init"] is not None:
             # custom random initializer
@@ -14,14 +20,26 @@ class Model:
             self.random_init = tf.random_normal
 
         # Construct model
+        # --------------------
         # nodes: every node or layer need register
         self.nodes = {}
-        self.loss = 0
-
         # create blocks
         self.createBlocks(config["model"])
 
-        # loss
+        # Loss Function & Optimizer
+        # --------------------
+        self.createLoss(config)
+        self.createOpt(config)
+        
+        # Init Model
+        # --------------------
+        self.init = tf.global_variables_initializer()
+
+
+    # private function
+    # ========================================
+    def createLoss(self, config):
+        self.loss = 0
         with tf.name_scope("loss"):
             for loss_config in config["loss"]:
                 with tf.name_scope(loss_config["name"]):
@@ -48,12 +66,9 @@ class Model:
             # total loss (mean up batch dim)
             self.loss = tf.reduce_mean(self.loss)
 
-    def train(self, learning_rate):
+    def createOpt(self, config):
         # optimizer
-        self.optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(self.loss)
-
-        # init tf variables
-        self.init = tf.global_variables_initializer()
+        self.optimizer = tf.train.RMSPropOptimizer(config["lr"]).minimize(self.loss)
 
     def getNode(self, path):
         # split path
@@ -80,9 +95,12 @@ class Model:
     def createLayers(self, config):
         for layer_config in config:
             # Config Parameters
+            # --------------------
             layer_type = layer_config["type"]
             layer_name = layer_config["name"]
+
             # Create Layer
+            # --------------------
             # Fully Connected
             if layer_type == "FC":
                 with tf.name_scope(layer_name):
@@ -108,11 +126,10 @@ class Model:
                         self.nodes[layer_name] = activation(
                             tf.matmul(input_layer, weight) + bias
                         )
-
+            
             # Vanilla RNN
             elif layer_type == "RNN":
                 with tf.name_scope(layer_name):
-
                     # parameters
                     output_size = layer_config["output_size"]
                     # cell
@@ -235,6 +252,7 @@ class Model:
                     }
                     
 
+<<<<<<< HEAD
                     '''
                     # input size
                     input_layer = self.nodes[layer_config["input"]]
@@ -283,14 +301,32 @@ class Model:
                             _output, _state = cell(_input, _state)
                         latent_code = _state
                     '''
+=======
+            # LSTM
+            elif layer_type == "LSTM":
+                '''
+                    # parameters
+                    hidden_size = layer_config["output_size"]
+                    forget_bias = layer_config["forget_bias"]
+                    batch_size
+                    # create BasicLSTMCell
+                    lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_size, forget_bias=forget_bias, state_is_tuple=True)
+                    # defining initial state
+                    init_state = rnn_cell.zero_state(batch_size, dtype=tf.float32)
+                    outputs, states = rnn.dynamic_rnn(lstm_cell, layers)
+                '''
+                raise NotImplementedError("LSTM: not implemented")
+>>>>>>> next
 
             # Sampler for variational autoencoder
             elif layer_type == "sampler":
-                with tf.name_scope(layer_name):
-                    # TODO: only standard deviation for each dimension
-                    #       might need to add convariance?
-                    # TODO: activation function?
+                '''
+                    with tf.name_scope(layer_name):
+                        # TODO: only standard deviation for each dimension
+                        #       might need to add convariance?
+                        # TODO: activation function?
 
+<<<<<<< HEAD
                     # input size
                     # input data shape should be [batch, data_size]
                     # TODO: reshape
@@ -317,27 +353,57 @@ class Model:
                         )
                         z_std_b = tf.Variable(
                             self.random_init([layer_config["output_size"]]), name="bias"
+=======
+                        # input size
+                        # input data shape should be [batch, data_size]
+                        # TODO: reshape
+                        input_layer = self.nodes[layer_config["input"]]
+                        input_size = input_layer.get_shape().as_list()[1]
+                        # mean
+                        with tf.name_scope("mean"):
+                            # weight & bias
+                            z_mean_w = tf.Variable(
+                                self.random_init([input_size, layer_config["output_size"]]),
+                                name="weight",
+                            )
+                            z_mean_b = tf.Variable(
+                                self.random_init([layer_config["output_size"]]), name="bias"
+                            )
+                            # build vector
+                            z_mean = tf.matmul(input_layer, z_mean_w) + z_mean_b
+                        # standard deviation (actually is 4*log(std)?)
+                        with tf.name_scope("standard_deviation"):
+                            # weight & bias
+                            z_std_w = tf.Variable(
+                                self.random_init([input_size, layer_config["output_size"]]),
+                                name="weight",
+                            )
+                            z_std_b = tf.Variable(
+                                self.random_init([layer_config["output_size"]]), name="bias"
+                            )
+                            # build vector
+                            z_std = tf.matmul(input_layer, z_std_w) + z_std_b
+                        # epsilon
+                        epsilon = tf.random_normal(
+                            [layer_config["output_size"]],
+                            dtype=tf.float32,
+                            mean=0.,
+                            stddev=1.0,
+                            name="epsilon",
+>>>>>>> next
                         )
-                        # build vector
-                        z_std = tf.matmul(input_layer, z_std_w) + z_std_b
-                    # epsilon
-                    epsilon = tf.random_normal(
-                        [layer_config["output_size"]],
-                        dtype=tf.float32,
-                        mean=0.,
-                        stddev=1.0,
-                        name="epsilon",
-                    )
-                    # reparameterize trick
-                    # z = mean + var*eps
-                    z = z_mean + tf.exp(z_std / 2) * epsilon
-                    self.nodes[layer_name] = z
+                        # reparameterize trick
+                        # z = mean + var*eps
+                        z = z_mean + tf.exp(z_std / 2) * epsilon
+                        self.nodes[layer_name] = z
 
-                    # loss
-                    with tf.name_scope("KL_divergence_loss"):
-                        loss = 1 + z_std - tf.square(z_mean) - tf.exp(z_std)
-                        # TODO: setting beta (currentlt 0.5)
-                        self.loss += -0.5 * tf.reduce_sum(loss, 1)
+                        # loss
+                        with tf.name_scope("KL_divergence_loss"):
+                            loss = 1 + z_std - tf.square(z_mean) - tf.exp(z_std)
+                            # TODO: setting beta (currentlt 0.5)
+                            self.loss += -0.5 * tf.reduce_sum(loss, 1)
+                '''
+                raise NotImplementedError("LSTM: not implemented")
 
             # Input
             elif layer_type == "input":
