@@ -3,8 +3,7 @@ import numpy as np
 
 # tensorflow utils
 # ========================================
-def utils():
-    pass
+pass
 
 # Build Model
 class Model:
@@ -250,58 +249,7 @@ class Model:
                         "sequence_len": time_step,
                         "input_size": input_size
                     }
-                    
 
-<<<<<<< HEAD
-                    '''
-                    # input size
-                    input_layer = self.nodes[layer_config["input"]]
-                    # TODO: reshape
-                    if len(input_layer.get_shape().as_list()) == 2:
-                        # decoder
-                        # input data shape should be [batch, data_size]
-                        batch_size = input_layer.get_shape().as_list()[0]
-                        input_size = input_layer.get_shape().as_list()[1]
-                        # parameters
-                        output_size = layer_config["output_size"]
-                        if "sequence_len" in layer_config and layer_config["sequence_len"] is not None:
-                            time_step = layer_config["sequence_len"]
-                        # cell 
-                        cell = tf.contrib.rnn.BasicRNNCell(output_size, activation=layer_config["activation"], name="RNNCell")
-                        # init state
-                        init_state = cell.zero_state(batch_size, dtype=tf.float32)
-                        # build layer
-                        _state = init_state
-                        for step in range(time_step):
-                            # TODO: deal w/ input
-                            _input = tf.gather(input_layer, step, axis=1)
-                            _output, _state = cell(_input, _state)
-                            _output = 
-                        
-
-                    elif len(input_layer.get_shape().as_list()) == 3:
-                        # encoder
-                        # input data shape should be [batch, time_step, data_size]
-                        batch_size = input_layer.get_shape().as_list()[0]
-                        time_step = input_layer.get_shape().as_list()[1]
-                        input_size = input_layer.get_shape().as_list()[2]
-                        # parameters
-                        output_size = layer_config["output_size"]
-                        if "sequence_len" in layer_config and layer_config["sequence_len"] is not None:
-                            time_step = layer_config["sequence_len"]
-                        # cell 
-                        cell = tf.contrib.rnn.BasicRNNCell(output_size, activation=layer_config["activation"], name="RNNCell")
-                        # init state
-                        init_state = cell.zero_state(batch_size, dtype=tf.float32)
-                        # build layer
-                        _state = init_state
-                        for step in range(time_step):
-                            # TODO: deal w/ input
-                            _input = tf.gather(input_layer, step, axis=1)
-                            _output, _state = cell(_input, _state)
-                        latent_code = _state
-                    '''
-=======
             # LSTM
             elif layer_type == "LSTM":
                 '''
@@ -316,7 +264,6 @@ class Model:
                     outputs, states = rnn.dynamic_rnn(lstm_cell, layers)
                 '''
                 raise NotImplementedError("LSTM: not implemented")
->>>>>>> next
 
             # Sampler for variational autoencoder
             elif layer_type == "sampler":
@@ -326,34 +273,6 @@ class Model:
                         #       might need to add convariance?
                         # TODO: activation function?
 
-<<<<<<< HEAD
-                    # input size
-                    # input data shape should be [batch, data_size]
-                    # TODO: reshape
-                    input_layer = self.getNode(layer_config["input"])
-                    input_size = input_layer.get_shape().as_list()[1]
-                    # mean
-                    with tf.name_scope("mean"):
-                        # weight & bias
-                        z_mean_w = tf.Variable(
-                            self.random_init([input_size, layer_config["output_size"]]),
-                            name="weight",
-                        )
-                        z_mean_b = tf.Variable(
-                            self.random_init([layer_config["output_size"]]), name="bias"
-                        )
-                        # build vector
-                        z_mean = tf.matmul(input_layer, z_mean_w) + z_mean_b
-                    # standard deviation (actually is 4*log(std)?)
-                    with tf.name_scope("standard_deviation"):
-                        # weight & bias
-                        z_std_w = tf.Variable(
-                            self.random_init([input_size, layer_config["output_size"]]),
-                            name="weight",
-                        )
-                        z_std_b = tf.Variable(
-                            self.random_init([layer_config["output_size"]]), name="bias"
-=======
                         # input size
                         # input data shape should be [batch, data_size]
                         # TODO: reshape
@@ -390,7 +309,6 @@ class Model:
                             mean=0.,
                             stddev=1.0,
                             name="epsilon",
->>>>>>> next
                         )
                         # reparameterize trick
                         # z = mean + var*eps
