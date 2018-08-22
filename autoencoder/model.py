@@ -21,13 +21,11 @@ def FC(x, nh, initializer=None, activation=None):
     if activation is None:  return tf.matmul(x, weight) + bias # linear
     else:   return activation(tf.matmul(x, weight) + bias)
 
-def Cell(cell_type, num_units, activation=None, name=None):
-    if cell_type == "RNN":
-        return tf.contrib.rnn.BasicRNNCell(num_units, activation=activation, name=name)
-    if cell_type == "LSTM":
-        return tf.contrib.rnn.LSTMCell(num_units, activation=activation, name=name)
-    #if "cell" not in layer_config or layer_config["cell"] is None:
-    #    raise NotImplementedError("Configuration")
+def Cell(config, num_units, activation=None, name=None):
+    if "cell" not in config or config["cell"] is None: # default RNN cell
+        cell = tf.contrib.rnn.BasicRNNCell(num_units, activation=activation, name=name)
+    else: # specified cell
+        cell = config["cell"](num_units, activation=activation, name=name)
 
 def MSE(loss_config, y, label, mask):
     loss_weight = loss_config["weight"]
@@ -36,35 +34,44 @@ def MSE(loss_config, y, label, mask):
     else: # custom loss
         return loss_weight * loss_config["loss_func"](ground_truth, prediction)    
 
-def GetInput(layer_config):
-    input_size = None
-    # input size
-    if isinstance(layer_config["input"], int):
-        input_size = layer_config["input"] # specified fixed length
-    elif isinstance(layer_config["input"], str):
-        input_size = self.getNode(layer_config["input"]) # other layers parameter
-    return input_size
+def GetInput(model, config):
+    if isinstance(config["input"], int): # specified fixed length
+        return config["input"] 
+    elif isinstance(config["input"], str):
+        return GetNode(model, config["input"]) # other layers parameter
 
-def GetTimeStep(layer_config):
-    if "sequence_len" in layer_config and layer_config["sequence_len"] is not None:
-        if isinstance(layer_config["sequence_len"], int):                                
-            time_step = layer_config["sequence_len"] # specified fixed length
-        elif isinstance(layer_config["sequence_len"], str):                                
-            time_step = self.getNode(layer_config["sequence_len"]) # other layers paramete
-    return time_step
+def GetInitState(model, config, cell, batch_size):
+    # initial state: in shape [batch_size, output_size]
+    if "init_state" in config and config["init_state"] is not None:
+        init_state = GetNode(model, config["init_state"])
+    else: 
+        init_state = cell.zero_state(batch_size, dtype=tf.float32)
+
+def GetTimeStep(model, config):
+    if "sequence_len" in config and config["sequence_len"] is not None:
+        if isinstance(config["sequence_len"], int): # specified fixed length                                
+            return config["sequence_len"] 
+        elif isinstance(config["sequence_len"], str): # other layers paramete
+            return GetNode(model, config["sequence_len"]) 
+
+def GetNode(model, config):
+    path = path.split('/') # split path
+    nodes = model.nodes # find the node with the path
+    for config in path: return nodes[config]
 
 # Build Model
 class Model:
+    '''
+        model prototype
+    '''
     def __init__(self, config):
         # Settings
         # --------------------
         # random initializer
         if "random_init" in config and config["random_init"] is not None:
-            # custom random initializer
-            self.random_init = config["random_init"]
+            self.random_init = config["random_init"] # custom random initializer
         else:
-            # default: normal distribution
-            self.random_init = tf.random_normal
+            self.random_init = tf.random_normal # default: normal distribution
 
         # Construct model
         # --------------------
@@ -107,15 +114,12 @@ class Model:
 
     def createBlocks(self, config):
         for block_config in config:
-            # create block scope
-            with tf.name_scope(block_config["name"]):
-                # layers
-                if "layers" in block_config and block_config["layers"] is not None:
-                    # create layers
+            with tf.name_scope(block_config["name"]): # create block scope
+                 # create layers
+                if "layers" in block_config and block_config["layers"] is not None:   
                     self.createLayers(block_config["layers"])
-                # blocks
+                # create blocks
                 if "blocks" in block_config and block_config["blocks"] is not None:
-                    # create blocks
                     self.createBlocks(block_config["blocks"])
 
     def createLayers(self, config):
@@ -127,10 +131,11 @@ class Model:
 
             # Create Layer
             # ----------------------------------------
-            with tf.name_scope(layer_name):
+            with tf.variable_scope(layer_name) as vs:
                 # Fully Connected
                 # TODO: need debugging
                 if layer_type == "FC":  
+                    # input layer
                     input_layer = self.getNode(layer_config["input"])
 
                     # build layer
@@ -143,7 +148,7 @@ class Model:
                     output_size = layer_config["output_size"]
 
                     # cell type:  "RNN" = layer_config["cell"]
-                    cell = Cell("RNN", output_size, activation=layer_config["activation"], name="RNNCell")
+                    cell = Cell(layer_config, output_size, activation=layer_config["activation"], name="Cell")
 
                     # inputs & initial state
                     if "input_mode" not in layer_config or layer_config["input_mode"] is None:
@@ -155,13 +160,14 @@ class Model:
                         input_layer = self.getNode(layer_config["input"])
                         (batch_size, time_step, input_size) = input_layer.get_shape()
 
-                        # initial state / time major
+                        # build layer / initial state / time major
                         input_layer = tf.transpose(input_layer, [1, 0, 2])
                         _state = cell.zero_state(batch_size)
                         _outputs = []
 
                         # recurrent
                         for step in range(time_step):
+                            tf.map_fn        
                             _output, _state = cell(input_layer[step], _state)
                             _outputs.append(_output)
                      
@@ -169,9 +175,9 @@ class Model:
                         # Preveious Input: /w shape [batch_size, input_size]
                         input_layer = self.getNode(layer_config["init_state"])
                         (batch_size, input_size) = input_layer.get_shape()
-                                                
-                        # initial state
-                        _state = cell.zero_state(batch_size)
+
+                        # build layer / initial state
+                        _state = GetInitState(self, layer_config, cell,batch_size )
                         _output = tf.zeros([batch_size, input_size])
                         _outputs = []
 
@@ -182,8 +188,8 @@ class Model:
                                     initializer=self.random_init, activation=layer_config["fc_activation"])
                             _outputs.append(_output)
 
-                    # stack outputs: /w shape = [batch_size, time_step, data_size]
-                    _outputs = tf.stack(_outputs, axis=1)
+                    # stack outputs [batch_size, time_step, data_size]
+                    _outputs = tf.stack(_outputs, axis=1, name="outputs")
 
                     # register node
                     self.nodes[layer_name] = {
@@ -192,10 +198,6 @@ class Model:
                         "sequence_len": time_step,
                         "input_size": input_size
                     }
-
-                # LSTM
-                elif layer_type == "LSTM":
-                    raise NotImplementedError("LSTM: not implemented")
 
                 # Sampler for variational autoencoder
                 elif layer_type == "sampler":
@@ -279,6 +281,7 @@ class Model:
                     )
 
     def getNode(self, path):
+        Warning("This function will be decrepeted")
         # split path
         path = path.split('/')
         # find the node with the path
