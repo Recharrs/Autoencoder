@@ -7,6 +7,9 @@ pass
 
 # Build Model
 class Model:
+    '''
+    model prototype
+    '''
     def __init__(self, config):
         # Settings
         # --------------------
@@ -177,7 +180,9 @@ class Model:
                             # init state should be [batch_size, output_size]
                             init_state = self.getNode(layer_config["init_state"])
                         else: 
-                            init_state = tf.zeros([batch_size, output_size])
+                            # zero init state
+                            #init_state = tf.zeros([batch_size, output_size], name="init_state")
+                            init_state = cell.zero_state(batch_size, dtype=tf.float32)
 
                         # build layer
                         _state = init_state
@@ -186,6 +191,7 @@ class Model:
                         input_layer = tf.transpose(input_layer, [1, 0, 2])
                         # recurrent
                         for step in range(time_step):
+                            tf.map_fn        
                             _output, _state = cell(input_layer[step], _state)
                             _outputs.append(_output)
                     
@@ -194,7 +200,14 @@ class Model:
                         # initial state
                         init_state = self.getNode(layer_config["init_state"])
                         # init state should be [batch, output_size]
-                        batch_size = init_state.get_shape().as_list()[0]
+                        # TODO: dirty code
+                        if hasattr(init_state, 'get_shape'):
+                            # only one tensor
+                            batch_size = init_state.get_shape().as_list()[0]
+                        else:
+                            # tuple of tensors
+                            batch_size = init_state[0].get_shape().as_list()[0]
+                        
                         # input size
                         if isinstance(layer_config["input"], int):
                             # specified fixed length
@@ -240,7 +253,7 @@ class Model:
                             _outputs.append(_output)
 
                     # stack outputs [batch_size, time_step, data_size]
-                    _outputs = tf.stack(_outputs, axis=1)
+                    _outputs = tf.stack(_outputs, axis=1, name="outputs")
 
                     # register node
                     self.nodes[layer_name] = {

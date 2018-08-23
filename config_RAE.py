@@ -27,7 +27,7 @@ config = {
                     "input": "input",
                     "input_mode": "INPUT_MODE",  # input, zeros, output
                     "init_state": None,  # init state
-                    "cell": tf.contrib.rnn.BasicRNNCell,
+                    "cell": tf.contrib.rnn.GRUCell,
                     "output_size": num_hidden,  # i.e. hidden state size
                     "activation": None,
                     "sequence_len": time_step,  # recurrent len
@@ -38,17 +38,12 @@ config = {
             "name": "decoder",
             "layers": [
                 {
-                    "type": "block_input",
-                    "name": "decoder_input",
-                    "input": "encoder/state",
-                },
-                {
                     "type": "RNN",
                     "name": "decoder",
                     "input": "encoder/input_size",  # specify data size
                     "input_mode": "OUTPUT_MODE",
-                    "init_state": "decoder_input",
-                    "cell": tf.contrib.rnn.BasicRNNCell,
+                    "init_state": "encoder/state",
+                    "cell": tf.contrib.rnn.GRUCell,
                     "output_size": num_hidden,
                     "activation": None,
                     "sequence_len": "encoder/sequence_len",  # as encoder
