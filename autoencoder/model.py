@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-# tf utils
+# Utils
 # ========================================
 def Variable(initial_value, name=None):
     return tf.Variable(
@@ -9,49 +9,71 @@ def Variable(initial_value, name=None):
         name=name
     )
 
-def FC(x, weight, bias, activation=None):
-    if activation is None:
-        return tf.matmul(x, weight) + bias # linear
-    else:
-        return activation(tf.matmul(x, weight) + bias)
+def FC(x, nh, initializer=None, activation=None):
+    # x shape: [batch, nin]
+    nin, nh = x.get_shape().as_list()[-1], nh
 
-def Cell(cell_type, num_units, activation=None, name=None):
-    if cell_type == "RNN":
+    # weights and bias
+    w = Variable(initializer([nin, nh]), name="weight")
+    b = Variable(initializer([nh]), name="bias")
+
+    # output
+    if activation is None:  return tf.matmul(x, w) + b # linear
+    else:   return activation(tf.matmul(x, w) + b)
+
+def Cell(config, num_units, activation=None, name=None):
+    if "cell" not in config or config["cell"] is None: # default RNN cell
         return tf.contrib.rnn.BasicRNNCell(num_units, activation=activation, name=name)
-    if cell_type == "LSTM":
-        return tf.contrib.rnn.LSTMCell(num_units, activation=activation, name=name)
-    #if "cell" not in layer_config or layer_config["cell"] is None:
-    #    raise NotImplementedError("Configuration")
+    else: # specified cell
+        return config["cell"](num_units, activation=activation, name=name)
 
-def GetInput(layer_config):
-    input_size = None
-    # input size
-    if isinstance(layer_config["input"], int):
-        input_size = layer_config["input"] # specified fixed length
-    elif isinstance(layer_config["input"], str):
-        input_size = self.getNode(layer_config["input"]) # other layers parameter
-    return input_size
+def MSE(loss_config, y, label, mask):
+    loss_weight = loss_config["weight"]
+    if ("loss_func" not in loss_config or loss_config["loss_func"] is None): # default loss: mean square error
+        return loss_weight * tf.reduce_mean(tf.pow((y - label), 2))
+    else: # custom loss
+        return loss_weight * loss_config["loss_func"](ground_truth, prediction)    
 
-def GetTimeStep(layer_config):
-    if "sequence_len" in layer_config and layer_config["sequence_len"] is not None:
-        if isinstance(layer_config["sequence_len"], int):                                
-            time_step = layer_config["sequence_len"] # specified fixed length
-        elif isinstance(layer_config["sequence_len"], str):                                
-            time_step = self.getNode(layer_config["sequence_len"]) # other layers paramete
-    return time_step
+def GetInputSize(nodes, config):
+    if isinstance(config["input"], int): # specified fixed length
+        return config["input"] 
+    elif isinstance(config["input"], str):
+        return GetNode(nodes, config["input"]) # other layers parameter
+
+def GetInitState(nodes, config, cell, batch_size):
+    # initial state: in shape [batch_size, output_size]
+    if "init_state" in config and config["init_state"] is not None:
+        return GetNode(nodes, config["init_state"])
+    else: 
+        return cell.zero_state(batch_size, dtype=tf.float32)
+
+def GetTimeStep(nodes, config):
+    if "sequence_len" in config and config["sequence_len"] is not None:
+        if isinstance(config["sequence_len"], int): # specified fixed length                                
+            return config["sequence_len"] 
+        if isinstance(config["sequence_len"], str): # other layers paramete
+            return GetNode(nodes, config["sequence_len"]) 
+
+def GetNode(nodes, path):
+    path = path.split('/') # split path
+    node = nodes # find the node with the path
+    for config in path: node = node[config]
+    return node
 
 # Build Model
+# ========================================
 class Model:
+    '''
+        model prototype
+    '''
     def __init__(self, config):
         # Settings
         # --------------------
         # random initializer
         if "random_init" in config and config["random_init"] is not None:
-            # custom random initializer
-            self.random_init = config["random_init"]
+            self.random_init = config["random_init"] # custom random initializer
         else:
-            # default: normal distribution
-            self.random_init = tf.random_normal
+            self.random_init = tf.random_normal # default: normal distribution
 
         # Construct model
         # --------------------
@@ -70,23 +92,19 @@ class Model:
         self.init = tf.global_variables_initializer()
 
     def createLoss(self, config):
+        # TODO: check loss function
         self.loss = 0
         with tf.name_scope("loss"):
             for loss_config in config["loss"]:
                 with tf.name_scope(loss_config["name"]):
+                    # TODO: check loss function
                     # ground truth & prediction
                     ground_truth = self.getNode(loss_config["ground_truth"])
                     prediction = self.getNode(loss_config["prediction"])
                     mask = self.getNode(loss_config["mask"])
 
-                    # weight
-                    loss_weight = loss_config["weight"]
-                    if ("loss_func" not in loss_config or loss_config["loss_func"] is None):
-                        # default loss: mean square error
-                        loss = loss_weight * tf.reduce_mean(tf.multiply(tf.reduce_mean((tf.pow(ground_truth - prediction, 2)), axis=-1), mask))
-                    else:
-                        # custom loss
-                        loss = loss_weight * loss_config["loss_func"](ground_truth, prediction)
+                    # loss
+                    loss = MSE(loss_config, prediction, ground_truth, mask)
                 # add loss
                 self.loss += loss
             # total loss (mean up batch dim)
@@ -98,15 +116,12 @@ class Model:
 
     def createBlocks(self, config):
         for block_config in config:
-            # create block scope
-            with tf.name_scope(block_config["name"]):
-                # layers
-                if "layers" in block_config and block_config["layers"] is not None:
-                    # create layers
+            with tf.name_scope(block_config["name"]): # create block scope
+                 # create layers
+                if "layers" in block_config and block_config["layers"] is not None:   
                     self.createLayers(block_config["layers"])
-                # blocks
+                # create blocks
                 if "blocks" in block_config and block_config["blocks"] is not None:
-                    # create blocks
                     self.createBlocks(block_config["blocks"])
 
     def createLayers(self, config):
@@ -118,20 +133,16 @@ class Model:
 
             # Create Layer
             # ----------------------------------------
-            with tf.name_scope(layer_name):
+            with tf.variable_scope(layer_name) as vs:
                 # Fully Connected
+                # TODO: need debugging
                 if layer_type == "FC":  
+                    # input layer
                     input_layer = self.getNode(layer_config["input"])
 
-                    # input: shape should be [batch_size, data_size]
-                    (batch_size, input_size) = input_layer.get_shape()
-
-                    # weight & bias
-                    weight = Variable(self.random_init([input_size, layer_config["output_size"]]), name="weight")
-                    bias = Variable(self.random_init([layer_config["output_size"]]), name="bias")
-
                     # build layer
-                    self.nodes[layer_name] = FC(weight, bias, activation=layer_config["activation"])
+                    self.nodes[layer_name] = FC(input_layer, layer_config["output_size"],
+                            initializer=self.random_init, activation=layer_config["activation"])
 
                 # Vanilla RNN
                 elif layer_type == "RNN":
@@ -139,7 +150,7 @@ class Model:
                     output_size = layer_config["output_size"]
 
                     # cell type:  "RNN" = layer_config["cell"]
-                    cell = Cell("RNN", output_size, activation=layer_config["activation"], name="RNN_Cell")
+                    cell = Cell(layer_config, output_size, activation=layer_config["activation"], name="Cell")
 
                     # inputs & initial state
                     if "input_mode" not in layer_config or layer_config["input_mode"] is None:
@@ -149,42 +160,39 @@ class Model:
                     elif layer_config["input_mode"] == "INPUT_MODE":
                         # Input: /w shape [batch_size, time_step, input_size]
                         input_layer = self.getNode(layer_config["input"])
-                        (batch_size, time_step, input_size) = input_layer.get_shape()
-                 
-                        # initial state
-                        _state = cell.zero_state(batch_size)
-                        _outputs = []
-                        
-                        # time major
+                        [batch_size, time_step, input_size] = input_layer.get_shape().as_list()
+
+                        # build layer / initial state / time major
                         input_layer = tf.transpose(input_layer, [1, 0, 2])
-                        
+                        _state = cell.zero_state(batch_size, dtype=tf.float32)
+                        _outputs = []
+
                         # recurrent
-                        for step in range(time_step):
+                        for step in range(time_step): 
                             _output, _state = cell(input_layer[step], _state)
                             _outputs.append(_output)
                      
                     elif layer_config["input_mode"] == "OUTPUT_MODE":
                         # Preveious Input: /w shape [batch_size, input_size]
                         input_layer = self.getNode(layer_config["init_state"])
-                        (batch_size, input_size) = input_layer.get_shape()
-                                                
-                        # initial state
-                        _state = cell.zero_state(batch_size)
+                        (batch_size, _) = input_layer.get_shape()
+                        input_size = GetInputSize(self.nodes, layer_config) 
+                        time_step = GetTimeStep(self.nodes, layer_config)
+
+                        # build layer / initial state
+                        _state = GetInitState(self.nodes, layer_config, cell,batch_size)
                         _output = tf.zeros([batch_size, input_size])
                         _outputs = []
-
-                        # create FC for convert output from [batch_size, output_size] to [batch_size, input_size]
-                        fc_weight = Variable(self.random_init([output_size, input_size]), name="weight")
-                        fc_bias = Variable(self.random_init([input_size]), name="bias")
 
                         # recurrent
                         for _ in range(time_step):
                             _output, _state = cell(_output, _state)
-                            _output = fc(_output,fc_weight, fc_bias, activation=layer_config["fc_activation"])
+                            _output = FC(_output, input_size,
+                                    initializer=self.random_init, activation=layer_config["fc_activation"])
                             _outputs.append(_output)
 
-                    # stack outputs: /w shape = [batch_size, time_step, data_size]
-                    _outputs = tf.stack(_outputs, axis=1)
+                    # stack outputs [batch_size, time_step, data_size]
+                    _outputs = tf.stack(_outputs, axis=1, name="outputs")
 
                     # register node
                     self.nodes[layer_name] = {
@@ -193,10 +201,6 @@ class Model:
                         "sequence_len": time_step,
                         "input_size": input_size
                     }
-
-                # LSTM
-                elif layer_type == "LSTM":
-                    raise NotImplementedError("LSTM: not implemented")
 
                 # Sampler for variational autoencoder
                 elif layer_type == "sampler":
@@ -279,7 +283,9 @@ class Model:
                         input_layer, input_layer.get_shape(), name=layer_name
                     )
 
+
     def getNode(self, path):
+        Warning("This function will be decrepeted")
         # split path
         path = path.split('/')
         # find the node with the path

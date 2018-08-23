@@ -12,7 +12,7 @@ from autoencoder.model import Model
 batch_size = 32
 state_size = 6
 max_time_step = 100
-num_hidden = 64
+num_hidden = 16
 
 num_steps = 50000
 display_step = 10
@@ -51,11 +51,12 @@ config = {
                     "type": "RNN",
                     "name": "encoder",
                     "input": "observation",
+                    "input_mode": "INPUT_MODE",  # input, zeros, output
+                    "init_state": None,  # init state
+                    "cell": tf.contrib.rnn.GRUCell,
                     "output_size": num_hidden,  # i.e. hidden state size
                     "activation": None,
                     "sequence_len": max_time_step,  # recurrent len
-                    "init_state": None,  # init state
-                    "input_mode": "INPUT_MODE",  # input, zeros, output
                 }
             ]
         },
@@ -70,14 +71,15 @@ config = {
                 {
                     "type": "RNN",
                     "name": "decoder",
-                    "input": "encoder/input_size",     # specify data size
+                    "input": "encoder/input_size",  # specify data size
+                    "input_mode": "OUTPUT_MODE",
+                    "init_state": "encoder/state",
+                    "cell": tf.contrib.rnn.GRUCell,
                     "output_size": num_hidden,
                     "activation": None,
-                    "sequence_len": "encoder/sequence_len", # as encoder
-                    "init_state": "decoder_input",
-                    "input_mode": "OUTPUT_MODE",
+                    "sequence_len": "encoder/sequence_len",  # as encoder
                     "fc_activation": None,
-                }
+                },
             ]
         },
         {
@@ -188,8 +190,9 @@ if mode == "train" or True:
 
         # model input
         graph = tf.get_default_graph()
-        observation = graph.get_tensor_by_name("inputs/observation:0")
-        mask = graph.get_tensor_by_name("inputs/mask:0")
+        #print(tf.all_variables())
+        observation = graph.get_tensor_by_name("inputs/observation/observation:0")
+        mask = graph.get_tensor_by_name("inputs/mask/mask:0")
 
         # Training
         for i in range(1, num_steps + 1):
