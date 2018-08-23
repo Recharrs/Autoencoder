@@ -13,3 +13,6 @@ Model/*
 
 # data
 Trajectory
+
+# MacOSX file
+._.DS_Store

@@ -1,5 +1,5 @@
-# Autoencoder
-
+# Autoencoder - Lite Version
+**This is lite version of AutoEncoder**
 Try to build many kinds of autoencoder. Currently got vanilla autoencoder and variantional autoencoder only.
 RAE, and VRAE will be added in the future.
 
